@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { BusinessProvider, useBusiness } from "@/hooks/useBusiness";
+import { ThemeProvider } from "@/hooks/useTheme";
 
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
@@ -24,7 +25,7 @@ const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-pulse text-muted-foreground">Carregando...</div></div>;
   if (!user) return <Navigate to="/auth" replace />;
   return <>{children}</>;
 }
@@ -33,7 +34,7 @@ function DashboardRoutes() {
   const { business, loading } = useBusiness();
   const { user } = useAuth();
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-background"><div className="animate-pulse text-muted-foreground">Carregando...</div></div>;
   if (!business && user) return <Navigate to="/onboarding" replace />;
 
   return (
@@ -52,7 +53,7 @@ function DashboardRoutes() {
 }
 
 function AppRoutes() {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
 
   return (
     <Routes>
@@ -84,15 +85,17 @@ function AppRoutes() {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
+    <ThemeProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <AppRoutes />
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

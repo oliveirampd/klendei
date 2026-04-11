@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,19 +8,20 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { KlendeiLogo } from '@/components/KlendeiLogo';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { formatCurrency, phoneMask, phoneToWhatsApp } from '@/lib/format';
 import { format, addDays, startOfDay, setHours, setMinutes, isBefore, isAfter, addMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { MessageCircle, Clock, Check, ChevronLeft, ChevronRight, UserCircle } from 'lucide-react';
-import { toast } from 'sonner';
+import { MessageCircle, Clock, Check, ChevronLeft, UserCircle, Scissors, Sparkles, Star } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { Tables } from '@/integrations/supabase/types';
 
-type Professional = Tables<'professionals'>;
 type Service = Tables<'services'>;
 
 export default function PublicBooking() {
   const { slug } = useParams<{ slug: string }>();
-  const [step, setStep] = useState(0); // 0=browse, 1=pick time, 2=info, 3=done
+  const [step, setStep] = useState(0);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | null>(null);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
@@ -29,6 +30,8 @@ export default function PublicBooking() {
   const [clientPhone, setClientPhone] = useState('');
   const [notes, setNotes] = useState('');
   const [bookingDone, setBookingDone] = useState(false);
+  const [bookingError, setBookingError] = useState<string | null>(null);
+  const [bookingLoading, setBookingLoading] = useState(false);
   const [bookedInfo, setBookedInfo] = useState<{ professional: string; service: string; date: string; time: string } | null>(null);
 
   const { data: business, isLoading: businessLoading } = useQuery({
@@ -96,12 +99,10 @@ export default function PublicBooking() {
 
   const themeColor = business?.theme_color || '#7C6EF5';
 
-  // Generate time slots
   const timeSlots = useMemo(() => {
     if (!business || !selectedService) return [];
     const hours = business.hours as Record<string, { open: string; close: string; closed: boolean }> | null;
     if (!hours) return [];
-
     const dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
     const dayKey = dayKeys[selectedDate.getDay()];
     const dayHours = hours[dayKey];
@@ -109,7 +110,6 @@ export default function PublicBooking() {
 
     const [openH, openM] = dayHours.open.split(':').map(Number);
     const [closeH, closeM] = dayHours.close.split(':').map(Number);
-
     const slots: string[] = [];
     let current = setMinutes(setHours(selectedDate, openH), openM);
     const end = setMinutes(setHours(selectedDate, closeH), closeM);
@@ -118,20 +118,10 @@ export default function PublicBooking() {
     while (isBefore(current, end)) {
       const slotEnd = addMinutes(current, selectedService.duration_minutes);
       if (isAfter(slotEnd, end)) break;
-      if (isAfter(current, now) || !isBefore(selectedDate, startOfDay(now))) {
-        // Check if slot conflicts with existing appointments
-        const slotTime = current.toISOString();
-        const conflict = existingAppointments.some((apt) => {
-          const aptStart = new Date(apt.datetime);
-          const aptEnd = addMinutes(aptStart, apt.service?.duration_minutes ?? 30);
-          return isBefore(current, aptEnd) && isAfter(slotEnd, aptStart);
-        });
+      if (isAfter(current, now)) {
         slots.push(format(current, 'HH:mm'));
-        if (conflict) {
-          // We'll mark it but still include it
-        }
       }
-      current = addMinutes(current, 30); // 30-min intervals
+      current = addMinutes(current, 30);
     }
     return slots;
   }, [business, selectedService, selectedDate, existingAppointments]);
@@ -140,7 +130,6 @@ export default function PublicBooking() {
     return new Set(existingAppointments.map((apt) => format(new Date(apt.datetime), 'HH:mm')));
   }, [existingAppointments]);
 
-  // Calendar days
   const calendarDays = useMemo(() => {
     const days: Date[] = [];
     for (let i = 0; i < 14; i++) {
@@ -149,68 +138,51 @@ export default function PublicBooking() {
     return days;
   }, []);
 
-  const bookMutation = useMutation({
-    mutationFn: async () => {
-      if (!business || !selectedService || !selectedTime) throw new Error('Missing data');
+  const handleBooking = async () => {
+    if (!business || !selectedService || !selectedTime) return;
+    setBookingLoading(true);
+    setBookingError(null);
 
-      const [h, m] = selectedTime.split(':').map(Number);
-      const datetime = setMinutes(setHours(selectedDate, h), m);
+    const [h, m] = selectedTime.split(':').map(Number);
+    const datetime = setMinutes(setHours(selectedDate, h), m);
+    const prof = professionals.find(p => p.id === selectedProfessionalId) || professionals[0];
 
-      // Find or create client
-      const phone = clientPhone.replace(/\D/g, '');
-      let { data: existingClient } = await supabase
-        .from('clients')
-        .select('id')
-        .eq('business_id', business.id)
-        .eq('phone', phone)
-        .maybeSingle();
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/create-appointment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          business_id: business.id,
+          professional_id: selectedProfessionalId || null,
+          service_id: selectedService.id,
+          datetime: datetime.toISOString(),
+          client_name: clientName,
+          client_phone: clientPhone,
+          notes,
+        }),
+      });
 
-      let clientId: string;
-      if (existingClient) {
-        clientId = existingClient.id;
-      } else {
-        const { data: newClient, error: clientErr } = await supabase
-          .from('clients')
-          .insert({
-            business_id: business.id,
-            name: clientName,
-            phone,
-            first_visit: datetime.toISOString(),
-          })
-          .select('id')
-          .single();
-        if (clientErr) throw clientErr;
-        clientId = newClient.id;
+      const result = await res.json();
+      if (!res.ok) {
+        setBookingError(result.error || 'Erro ao agendar.');
+        return;
       }
 
-      // Assign professional
-      const profId = selectedProfessionalId || professionals[0]?.id;
-      if (!profId) throw new Error('No professional available');
-
-      const { error } = await supabase.from('appointments').insert({
-        business_id: business.id,
-        professional_id: profId,
-        service_id: selectedService.id,
-        client_id: clientId,
-        datetime: datetime.toISOString(),
-        notes: notes || null,
-      });
-      if (error) throw error;
-
-      const prof = professionals.find(p => p.id === profId);
       setBookedInfo({
         professional: prof?.name || '',
         service: selectedService.name,
         date: format(datetime, "dd/MM/yyyy", { locale: ptBR }),
         time: selectedTime,
       });
-    },
-    onSuccess: () => {
       setBookingDone(true);
       setStep(3);
-    },
-    onError: () => toast.error('Erro ao agendar. Tente novamente.'),
-  });
+    } catch {
+      setBookingError('Erro de conexão. Verifique sua internet e tente novamente.');
+    } finally {
+      setBookingLoading(false);
+    }
+  };
 
   if (businessLoading) {
     return (
@@ -241,47 +213,51 @@ export default function PublicBooking() {
       : null;
 
     return (
-      <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: '#F7F6F2' }}>
-        <div className="w-full max-w-md text-center animate-scale-in">
-          <div
-            className="h-20 w-20 rounded-full mx-auto flex items-center justify-center mb-6 animate-check-bounce"
+      <div className="min-h-screen flex items-center justify-center px-4 bg-background">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, type: 'spring' }}
+          className="w-full max-w-md text-center"
+        >
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
+            className="h-20 w-20 rounded-full mx-auto flex items-center justify-center mb-6"
             style={{ backgroundColor: themeColor }}
           >
-            <Check className="h-10 w-10" style={{ color: '#fff' }} />
-          </div>
+            <Check className="h-10 w-10 text-white" />
+          </motion.div>
           <h1 className="text-2xl font-bold mb-2">Tudo certo, {clientName}!</h1>
           <p className="text-muted-foreground mb-6">Seu agendamento foi realizado com sucesso.</p>
 
           <Card className="mb-6 text-left">
             <CardContent className="p-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Serviço</span>
-                <span className="font-medium">{bookedInfo.service}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Profissional</span>
-                <span className="font-medium">{bookedInfo.professional}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Data</span>
-                <span className="font-medium">{bookedInfo.date}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Horário</span>
-                <span className="font-medium">{bookedInfo.time}</span>
-              </div>
+              {[
+                { label: 'Serviço', value: bookedInfo.service },
+                { label: 'Profissional', value: bookedInfo.professional },
+                { label: 'Data', value: bookedInfo.date },
+                { label: 'Horário', value: bookedInfo.time },
+              ].map(item => (
+                <div key={item.label} className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{item.label}</span>
+                  <span className="font-medium">{item.value}</span>
+                </div>
+              ))}
             </CardContent>
           </Card>
 
           {whatsappUrl && (
-            <Button
-              className="w-full mb-3"
-              style={{ backgroundColor: '#25D366' }}
-              onClick={() => window.open(whatsappUrl, '_blank')}
-            >
-              <MessageCircle className="mr-2 h-4 w-4" />
-              Confirmar via WhatsApp
-            </Button>
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+              <Button
+                className="w-full mb-3 bg-[#25D366] hover:bg-[#20BD5A]"
+                onClick={() => window.open(whatsappUrl, '_blank')}
+              >
+                <MessageCircle className="mr-2 h-4 w-4" />
+                Confirmar via WhatsApp
+              </Button>
+            </motion.div>
           )}
           <Button
             variant="outline"
@@ -298,7 +274,7 @@ export default function PublicBooking() {
           >
             Voltar ao início
           </Button>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -306,16 +282,16 @@ export default function PublicBooking() {
   // Step 2: Client Info
   if (step === 2) {
     return (
-      <div className="min-h-screen px-4 py-8" style={{ backgroundColor: '#F7F6F2' }}>
-        <div className="max-w-md mx-auto animate-fade-in">
-          {/* Progress */}
-          <div className="flex justify-center gap-2 mb-8">
-            {[0, 1, 2].map((s) => (
-              <div key={s} className="h-2 w-12 rounded-full" style={{ backgroundColor: s <= 2 ? themeColor : '#e5e5e5' }} />
-            ))}
-          </div>
+      <div className="min-h-screen px-4 py-8 bg-background">
+        <motion.div
+          initial={{ opacity: 0, x: 30 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -30 }}
+          className="max-w-md mx-auto"
+        >
+          <ProgressBar step={2} themeColor={themeColor} />
 
-          <Button variant="ghost" onClick={() => setStep(1)} className="mb-4">
+          <Button variant="ghost" onClick={() => { setStep(1); setBookingError(null); }} className="mb-4">
             <ChevronLeft className="mr-1 h-4 w-4" /> Voltar
           </Button>
 
@@ -323,22 +299,17 @@ export default function PublicBooking() {
 
           <Card className="mb-6">
             <CardContent className="p-4 space-y-1 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Serviço</span>
-                <span className="font-medium">{selectedService?.name}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Data</span>
-                <span className="font-medium">{format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Horário</span>
-                <span className="font-medium">{selectedTime}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Valor</span>
-                <span className="font-medium">{formatCurrency(selectedService?.price ?? 0)}</span>
-              </div>
+              {[
+                { label: 'Serviço', value: selectedService?.name },
+                { label: 'Data', value: format(selectedDate, "dd/MM/yyyy", { locale: ptBR }) },
+                { label: 'Horário', value: selectedTime },
+                { label: 'Valor', value: formatCurrency(selectedService?.price ?? 0) },
+              ].map(item => (
+                <div key={item.label} className="flex justify-between">
+                  <span className="text-muted-foreground">{item.label}</span>
+                  <span className="font-medium">{item.value}</span>
+                </div>
+              ))}
             </CardContent>
           </Card>
 
@@ -362,16 +333,47 @@ export default function PublicBooking() {
             <p className="text-xs text-muted-foreground">
               Seus dados são usados só para este agendamento.
             </p>
-            <Button
-              className="w-full"
-              style={{ backgroundColor: themeColor }}
-              disabled={!clientName || clientPhone.replace(/\D/g, '').length < 10 || bookMutation.isPending}
-              onClick={() => bookMutation.mutate()}
-            >
-              {bookMutation.isPending ? 'Agendando...' : 'Confirmar agendamento'}
-            </Button>
+
+            {/* Error modal */}
+            <AnimatePresence>
+              {bookingError && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="p-4 rounded-xl border border-destructive/30 bg-destructive/5"
+                >
+                  <p className="text-sm font-medium text-destructive mb-2">
+                    Ops! Não conseguimos confirmar seu agendamento.
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-3">{bookingError}</p>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setBookingError(null)}>
+                      Tentar novamente
+                    </Button>
+                    {business.whatsapp && (
+                      <Button size="sm" variant="outline" onClick={() => window.open(phoneToWhatsApp(business.whatsapp!), '_blank')}>
+                        <MessageCircle className="mr-1 h-3 w-3" />
+                        Falar pelo WhatsApp
+                      </Button>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+              <Button
+                className="w-full"
+                style={{ backgroundColor: themeColor }}
+                disabled={!clientName || clientPhone.replace(/\D/g, '').length < 10 || bookingLoading}
+                onClick={handleBooking}
+              >
+                {bookingLoading ? 'Agendando...' : 'Confirmar agendamento'}
+              </Button>
+            </motion.div>
           </div>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -379,14 +381,13 @@ export default function PublicBooking() {
   // Step 1: Pick date/time
   if (step === 1 && selectedService) {
     return (
-      <div className="min-h-screen px-4 py-8" style={{ backgroundColor: '#F7F6F2' }}>
-        <div className="max-w-md mx-auto animate-fade-in">
-          {/* Progress */}
-          <div className="flex justify-center gap-2 mb-8">
-            {[0, 1, 2].map((s) => (
-              <div key={s} className="h-2 w-12 rounded-full" style={{ backgroundColor: s <= 1 ? themeColor : '#e5e5e5' }} />
-            ))}
-          </div>
+      <div className="min-h-screen px-4 py-8 bg-background">
+        <motion.div
+          initial={{ opacity: 0, x: 30 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="max-w-md mx-auto"
+        >
+          <ProgressBar step={1} themeColor={themeColor} />
 
           <Button variant="ghost" onClick={() => setStep(0)} className="mb-4">
             <ChevronLeft className="mr-1 h-4 w-4" /> Voltar
@@ -402,7 +403,9 @@ export default function PublicBooking() {
             <div className="mb-6">
               <Label className="mb-2 block">Profissional</Label>
               <div className="flex gap-2 overflow-x-auto pb-2">
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => setSelectedProfessionalId(null)}
                   className={`shrink-0 px-4 py-2 rounded-full text-sm border transition-colors ${
                     !selectedProfessionalId ? 'border-2' : 'border-border'
@@ -410,10 +413,12 @@ export default function PublicBooking() {
                   style={!selectedProfessionalId ? { borderColor: themeColor, color: themeColor } : {}}
                 >
                   Qualquer disponível
-                </button>
+                </motion.button>
                 {professionals.map((prof) => (
-                  <button
+                  <motion.button
                     key={prof.id}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => setSelectedProfessionalId(prof.id)}
                     className={`shrink-0 px-4 py-2 rounded-full text-sm border transition-colors ${
                       selectedProfessionalId === prof.id ? 'border-2' : 'border-border'
@@ -421,7 +426,7 @@ export default function PublicBooking() {
                     style={selectedProfessionalId === prof.id ? { borderColor: themeColor, color: themeColor } : {}}
                   >
                     {prof.name}
-                  </button>
+                  </motion.button>
                 ))}
               </div>
             </div>
@@ -433,8 +438,10 @@ export default function PublicBooking() {
             {calendarDays.map((day) => {
               const isSelected = day.getTime() === selectedDate.getTime();
               return (
-                <button
+                <motion.button
                   key={day.toISOString()}
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={() => { setSelectedDate(day); setSelectedTime(null); }}
                   className={`shrink-0 flex flex-col items-center p-3 rounded-xl border-2 min-w-[60px] transition-colors ${
                     isSelected ? '' : 'border-border hover:border-muted-foreground/30'
@@ -448,7 +455,7 @@ export default function PublicBooking() {
                   <span className="text-xs text-muted-foreground capitalize">
                     {format(day, 'MMM', { locale: ptBR })}
                   </span>
-                </button>
+                </motion.button>
               );
             })}
           </div>
@@ -461,12 +468,15 @@ export default function PublicBooking() {
             </p>
           ) : (
             <div className="grid grid-cols-4 gap-2 mb-6">
-              {timeSlots.map((time) => {
+              {timeSlots.map((time, i) => {
                 const taken = takenSlots.has(time);
                 const isSelected = selectedTime === time;
                 return (
-                  <button
+                  <motion.button
                     key={time}
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.02 }}
                     onClick={() => !taken && setSelectedTime(time)}
                     disabled={taken}
                     className={`py-2 px-3 rounded-lg text-sm font-medium border transition-colors ${
@@ -479,33 +489,50 @@ export default function PublicBooking() {
                     style={isSelected ? { borderColor: themeColor, backgroundColor: `${themeColor}15`, color: themeColor } : {}}
                   >
                     {time}
-                  </button>
+                  </motion.button>
                 );
               })}
             </div>
           )}
 
-          <Button
-            className="w-full"
-            style={{ backgroundColor: themeColor }}
-            disabled={!selectedTime}
-            onClick={() => setStep(2)}
-          >
-            Continuar
-          </Button>
-        </div>
+          {selectedTime && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-xs text-muted-foreground mb-4 text-center"
+            >
+              Este horário termina às{' '}
+              {(() => {
+                const [h, m] = selectedTime.split(':').map(Number);
+                const end = addMinutes(setMinutes(setHours(selectedDate, h), m), selectedService.duration_minutes);
+                return format(end, 'HH:mm');
+              })()}
+            </motion.p>
+          )}
+
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+            <Button
+              className="w-full"
+              style={{ backgroundColor: themeColor }}
+              disabled={!selectedTime}
+              onClick={() => setStep(2)}
+            >
+              Continuar
+            </Button>
+          </motion.div>
+        </motion.div>
       </div>
     );
   }
 
-  // Step 0: Browse page
+  // Step 0: Browse
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#F7F6F2' }}>
+    <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="px-4 py-3 flex items-center justify-between border-b bg-card">
-        <span className="text-sm font-bold" style={{ color: themeColor }}>Klendei</span>
+        <KlendeiLogo size="sm" />
         <span className="text-sm font-medium">{business.name}</span>
-        <div />
+        <ThemeToggle />
       </div>
 
       {/* Hero */}
@@ -521,13 +548,21 @@ export default function PublicBooking() {
               <img src={business.logo_url} alt="" className="h-16 w-16 rounded-xl object-cover border-2 border-card" />
             )}
             <div>
-              <h1 className="text-xl font-bold" style={{ color: '#fff' }}>{business.name}</h1>
+              <h1 className="text-xl font-bold text-white">{business.name}</h1>
               {business.description && (
-                <p className="text-sm" style={{ color: 'rgba(255,255,255,0.8)' }}>{business.description}</p>
+                <p className="text-sm text-white/80">{business.description}</p>
               )}
-              <Badge variant="secondary" className="mt-1">
-                {business.type === 'salon' ? 'Salão de beleza' : 'Clínica / Consultório'}
-              </Badge>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge variant="secondary">
+                  {business.type === 'salon' ? 'Salão de beleza' : 'Clínica / Consultório'}
+                </Badge>
+                {business.rating_avg && Number(business.rating_avg) > 0 && (
+                  <Badge variant="secondary" className="gap-1">
+                    <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                    {Number(business.rating_avg).toFixed(1)}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -539,18 +574,22 @@ export default function PublicBooking() {
           <div className="mb-8">
             <h2 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Profissionais</h2>
             <div className="flex gap-4 overflow-x-auto pb-2">
-              {professionals.map((prof) => (
-                <button
+              {professionals.map((prof, i) => (
+                <motion.button
                   key={prof.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.08 }}
+                  whileHover={{ scale: 1.08 }}
                   onClick={() => setSelectedProfessionalId(
                     selectedProfessionalId === prof.id ? null : prof.id
                   )}
-                  className={`flex flex-col items-center shrink-0 ${
+                  className={`flex flex-col items-center shrink-0 transition-opacity ${
                     selectedProfessionalId === prof.id ? 'opacity-100' : 'opacity-70'
                   }`}
                 >
                   <div
-                    className="h-16 w-16 rounded-full flex items-center justify-center mb-1 border-2"
+                    className="h-16 w-16 rounded-full flex items-center justify-center mb-1 border-2 relative"
                     style={{
                       borderColor: selectedProfessionalId === prof.id ? themeColor : 'transparent',
                     }}
@@ -562,12 +601,15 @@ export default function PublicBooking() {
                         <UserCircle className="h-7 w-7 text-primary" />
                       </div>
                     )}
+                    {(prof as any).online_now && (
+                      <div className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-green-500 border-2 border-card" />
+                    )}
                   </div>
                   <span className="text-xs font-medium truncate max-w-[80px]">{prof.name}</span>
                   {prof.specialty && (
                     <span className="text-xs text-muted-foreground truncate max-w-[80px]">{prof.specialty}</span>
                   )}
-                </button>
+                </motion.button>
               ))}
             </div>
           </div>
@@ -576,33 +618,47 @@ export default function PublicBooking() {
         {/* Services */}
         <h2 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Serviços</h2>
         <div className="space-y-3">
-          {services.map((svc) => (
-            <Card key={svc.id} className="overflow-hidden">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{svc.name}</p>
-                    <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                      <Clock className="h-3.5 w-3.5" />
-                      <span>{svc.duration_minutes} min</span>
-                      <span>·</span>
-                      <span className="font-medium text-foreground">{formatCurrency(svc.price)}</span>
+          {services.map((svc, i) => (
+            <motion.div
+              key={svc.id}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.08 }}
+            >
+              <Card className="overflow-hidden hover:shadow-md transition-shadow">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${themeColor}15` }}>
+                        <Scissors className="h-5 w-5" style={{ color: themeColor }} />
+                      </div>
+                      <div>
+                        <p className="font-medium">{svc.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5 text-sm text-muted-foreground">
+                          <Clock className="h-3.5 w-3.5" />
+                          <span>{svc.duration_minutes} min</span>
+                          <span>·</span>
+                          <span className="font-medium text-foreground">{formatCurrency(svc.price)}</span>
+                        </div>
+                      </div>
                     </div>
+                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                      <Button
+                        size="sm"
+                        style={{ backgroundColor: themeColor }}
+                        onClick={() => {
+                          setSelectedService(svc);
+                          setStep(1);
+                          setSelectedTime(null);
+                        }}
+                      >
+                        Agendar
+                      </Button>
+                    </motion.div>
                   </div>
-                  <Button
-                    size="sm"
-                    style={{ backgroundColor: themeColor }}
-                    onClick={() => {
-                      setSelectedService(svc);
-                      setStep(1);
-                      setSelectedTime(null);
-                    }}
-                  >
-                    Agendar
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </motion.div>
           ))}
           {services.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-8">
@@ -615,21 +671,37 @@ export default function PublicBooking() {
       {/* Footer */}
       <div className="border-t py-6 px-4 text-center space-y-3">
         {business.whatsapp && (
-          <Button
-            variant="outline"
-            onClick={() => window.open(phoneToWhatsApp(business.whatsapp!), '_blank')}
-          >
-            <MessageCircle className="mr-2 h-4 w-4" />
-            Contato via WhatsApp
-          </Button>
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+            <Button
+              variant="outline"
+              onClick={() => window.open(phoneToWhatsApp(business.whatsapp!), '_blank')}
+            >
+              <MessageCircle className="mr-2 h-4 w-4" />
+              Contato via WhatsApp
+            </Button>
+          </motion.div>
         )}
         <p className="text-xs text-muted-foreground">
           Agendado com{' '}
-          <a href="/" className="font-medium hover:underline" style={{ color: themeColor }}>
+          <a href="/" className="font-medium hover:underline" style={{ color: '#7C6EF5' }}>
             Klendei
           </a>
         </p>
       </div>
+    </div>
+  );
+}
+
+function ProgressBar({ step, themeColor }: { step: number; themeColor: string }) {
+  return (
+    <div className="flex justify-center gap-2 mb-8">
+      {[0, 1, 2].map((s) => (
+        <div
+          key={s}
+          className="h-2 w-12 rounded-full transition-colors"
+          style={{ backgroundColor: s <= step ? themeColor : 'hsl(var(--muted))' }}
+        />
+      ))}
     </div>
   );
 }

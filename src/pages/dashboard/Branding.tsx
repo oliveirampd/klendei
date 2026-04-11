@@ -18,7 +18,7 @@ export default function Branding() {
   const bookingUrl = business ? `${window.location.origin}/${business.slug}` : '';
 
   const updateMutation = useMutation({
-    mutationFn: async (data: Record<string, unknown>) => {
+    mutationFn: async (data: { description?: string; theme_color?: string; logo_url?: string; banner_url?: string }) => {
       if (!business) throw new Error('No business');
       const { error } = await supabase.from('businesses').update(data).eq('id', business.id);
       if (error) throw error;

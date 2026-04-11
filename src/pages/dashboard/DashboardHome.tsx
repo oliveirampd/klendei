@@ -80,8 +80,8 @@ export default function DashboardHome() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button asChild>
-            <Link to="/dashboard/agenda">
+          <Button asChild className="transition-all duration-200 hover:scale-[1.02] active:scale-[0.97]">
+            <Link to="/dashboard/novo-agendamento">
               <Plus className="mr-2 h-4 w-4" />
               Novo agendamento
             </Link>

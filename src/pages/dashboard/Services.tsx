@@ -6,11 +6,29 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Scissors } from 'lucide-react';
+import { Plus, Scissors, Sparkles, Hand, Eye, Droplets, Stethoscope, Smile, Heart } from 'lucide-react';
 import { formatCurrency } from '@/lib/format';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
+
+const SERVICE_ICONS: Record<string, any> = {
+  scissors: Scissors,
+  sparkles: Sparkles,
+  hand: Hand,
+  eye: Eye,
+  droplets: Droplets,
+  stethoscope: Stethoscope,
+  smile: Smile,
+  heart: Heart,
+};
+
+const ICON_OPTIONS = Object.keys(SERVICE_ICONS);
+
+function getServiceIcon(iconKey?: string | null) {
+  if (iconKey && SERVICE_ICONS[iconKey]) return SERVICE_ICONS[iconKey];
+  return Scissors;
+}
 
 export default function Services() {
   const { business } = useBusiness();
@@ -19,6 +37,7 @@ export default function Services() {
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [duration, setDuration] = useState('30');
+  const [iconKey, setIconKey] = useState('scissors');
 
   const { data: services = [] } = useQuery({
     queryKey: ['services', business?.id],
@@ -43,6 +62,7 @@ export default function Services() {
         name,
         price: parseFloat(price.replace(',', '.')),
         duration_minutes: parseInt(duration),
+        icon_key: iconKey,
       });
       if (error) throw error;
     },
@@ -52,6 +72,7 @@ export default function Services() {
       setName('');
       setPrice('');
       setDuration('30');
+      setIconKey('scissors');
       toast.success('Serviço adicionado!');
     },
     onError: () => toast.error('Erro ao adicionar serviço.'),
@@ -71,7 +92,9 @@ export default function Services() {
         <h1 className="text-2xl font-bold">Serviços</h1>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" />Adicionar</Button>
+            <Button className="transition-all duration-200 hover:scale-[1.02] active:scale-[0.97]">
+              <Plus className="mr-2 h-4 w-4" />Adicionar
+            </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Novo serviço</DialogTitle></DialogHeader>
@@ -90,7 +113,28 @@ export default function Services() {
                   <Input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} />
                 </div>
               </div>
-              <Button onClick={() => addMutation.mutate()} disabled={!name || !price || addMutation.isPending} className="w-full">
+              <div className="space-y-2">
+                <Label>Ícone</Label>
+                <div className="flex gap-2 flex-wrap">
+                  {ICON_OPTIONS.map((key) => {
+                    const Icon = SERVICE_ICONS[key];
+                    return (
+                      <motion.button
+                        key={key}
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => setIconKey(key)}
+                        className={`p-2 rounded-lg border transition-colors ${
+                          iconKey === key ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-accent'
+                        }`}
+                      >
+                        <Icon className="h-5 w-5" />
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </div>
+              <Button onClick={() => addMutation.mutate()} disabled={!name || !price || addMutation.isPending} className="w-full transition-all duration-200 hover:scale-[1.02] active:scale-[0.97]">
                 {addMutation.isPending ? 'Salvando...' : 'Adicionar'}
               </Button>
             </div>
@@ -107,27 +151,38 @@ export default function Services() {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {services.map((svc) => (
-            <Card key={svc.id}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="font-medium">{svc.name}</p>
-                  <Badge
-                    variant={svc.active ? 'default' : 'secondary'}
-                    className="cursor-pointer"
-                    onClick={() => toggleActive.mutate({ id: svc.id, active: svc.active ?? true })}
-                  >
-                    {svc.active ? 'Ativo' : 'Inativo'}
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                  <span>{formatCurrency(svc.price)}</span>
-                  <span>·</span>
-                  <span>{svc.duration_minutes} min</span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {services.map((svc, i) => {
+            const Icon = getServiceIcon(svc.icon_key);
+            return (
+              <motion.div key={svc.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Icon className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{svc.name}</p>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <span>{formatCurrency(svc.price)}</span>
+                          <span>·</span>
+                          <span>{svc.duration_minutes} min</span>
+                        </div>
+                      </div>
+                      <Button
+                        variant={svc.active ? 'default' : 'secondary'}
+                        size="sm"
+                        onClick={() => toggleActive.mutate({ id: svc.id, active: svc.active ?? true })}
+                        className="transition-all duration-200 hover:scale-[1.02] active:scale-[0.97]"
+                      >
+                        {svc.active ? 'Ativo' : 'Inativo'}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            );
+          })}
         </div>
       )}
     </div>

@@ -18,7 +18,7 @@ import { motion } from 'framer-motion';
 const NAV_ITEMS = [
   { title: 'Início', url: '/dashboard', icon: Home },
   { title: 'Agenda', url: '/dashboard/agenda', icon: Calendar },
-  { title: 'Novo Agendamento', url: '/dashboard/agenda?new=1', icon: Plus },
+  { title: 'Novo Agendamento', url: '/dashboard/novo-agendamento', icon: Plus },
   { title: 'Profissionais', url: '/dashboard/profissionais', icon: Users },
   { title: 'Serviços', url: '/dashboard/servicos', icon: Scissors },
   { title: 'Clientes', url: '/dashboard/clientes', icon: UserCircle },

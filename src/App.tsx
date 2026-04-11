@@ -15,6 +15,7 @@ import NotFound from "./pages/NotFound";
 import DashboardLayout from "./components/DashboardLayout";
 import DashboardHome from "./pages/dashboard/DashboardHome";
 import Agenda from "./pages/dashboard/Agenda";
+import NewAppointment from "./pages/dashboard/NewAppointment";
 import Professionals from "./pages/dashboard/Professionals";
 import Services from "./pages/dashboard/Services";
 import Clients from "./pages/dashboard/Clients";
@@ -42,6 +43,7 @@ function DashboardRoutes() {
       <Routes>
         <Route index element={<DashboardHome />} />
         <Route path="agenda" element={<Agenda />} />
+        <Route path="novo-agendamento" element={<NewAppointment />} />
         <Route path="profissionais" element={<Professionals />} />
         <Route path="servicos" element={<Services />} />
         <Route path="clientes" element={<Clients />} />

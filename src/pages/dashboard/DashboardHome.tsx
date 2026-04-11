@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient as useQC } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useBusiness } from '@/hooks/useBusiness';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +10,7 @@ import { Calendar, Clock, DollarSign, Users, Plus, CheckCircle } from 'lucide-re
 import { startOfDay, endOfDay, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 
 const STATUS_MAP = {
   pending: { label: 'Pendente', variant: 'outline' as const, className: 'border-warning text-warning' },
@@ -68,7 +70,20 @@ export default function DashboardHome() {
     enabled: !!business && !business.onboarding_completed,
   });
 
-  const showChecklist = setupChecklist && !business?.onboarding_completed;
+  // Auto-complete onboarding when all steps done
+  useEffect(() => {
+    if (setupChecklist && business && !business.onboarding_completed) {
+      const allDone = setupChecklist.hasLogo && setupChecklist.hasBanner && setupChecklist.hasProfessional && setupChecklist.hasService;
+      if (allDone) {
+        supabase.from('businesses').update({ onboarding_completed: true }).eq('id', business.id).then(() => {
+          // Will stop showing checklist on next render
+        });
+      }
+    }
+  }, [setupChecklist, business]);
+
+  const showChecklist = setupChecklist && !business?.onboarding_completed &&
+    !(setupChecklist.hasLogo && setupChecklist.hasBanner && setupChecklist.hasProfessional && setupChecklist.hasService);
 
   return (
     <div className="space-y-6 animate-fade-in">

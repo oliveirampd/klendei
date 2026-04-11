@@ -1,0 +1,10 @@
+<svg width="320" height="120" viewBox="0 0 320 120" xmlns="http://www.w3.org/2000/svg">
+  <rect width="320" height="120" rx="16" fill="#0D0D0D"/>
+  <rect x="24" y="28" width="52" height="52" rx="12" fill="#7C6EF5"/>
+  <text x="50" y="62" font-family="system-ui, -apple-system, sans-serif" font-size="26" font-weight="500" fill="white" text-anchor="middle" dominant-baseline="central" letter-spacing="-1">k</text>
+  <text x="94" y="55" font-family="system-ui, -apple-system, sans-serif" font-size="34" font-weight="500" fill="white" letter-spacing="-1.5" dominant-baseline="central">klen</text>
+  <text x="94" y="55" font-family="system-ui, -apple-system, sans-serif" font-size="34" font-weight="500" fill="white" letter-spacing="-1.5" dominant-baseline="central">
+    <tspan fill="white">klen</tspan><tspan fill="#7C6EF5">dei</tspan>
+  </text>
+  <text x="94" y="82" font-family="system-ui, -apple-system, sans-serif" font-size="11" font-weight="400" fill="#6B6A65" letter-spacing="2.5" dominant-baseline="central">AGENDAMENTO</text>
+</svg>

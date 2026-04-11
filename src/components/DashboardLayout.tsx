@@ -1,29 +1,24 @@
 import { ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarTrigger,
-  useSidebar,
+  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
+  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger, useSidebar,
 } from '@/components/ui/sidebar';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
 import { useBusiness } from '@/hooks/useBusiness';
+import { KlendeiLogo } from '@/components/KlendeiLogo';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import {
-  Home, Calendar, Users, Scissors, UserCircle, Palette, Settings, LogOut, ExternalLink,
+  Home, Calendar, Users, Scissors, UserCircle, Palette, Settings, LogOut, ExternalLink, Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
 
 const NAV_ITEMS = [
   { title: 'Início', url: '/dashboard', icon: Home },
   { title: 'Agenda', url: '/dashboard/agenda', icon: Calendar },
+  { title: 'Novo Agendamento', url: '/dashboard/agenda?new=1', icon: Plus },
   { title: 'Profissionais', url: '/dashboard/profissionais', icon: Users },
   { title: 'Serviços', url: '/dashboard/servicos', icon: Scissors },
   { title: 'Clientes', url: '/dashboard/clientes', icon: UserCircle },
@@ -37,7 +32,6 @@ function AppSidebar() {
   const { signOut } = useAuth();
   const { business } = useBusiness();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const handleSignOut = async () => {
     await signOut();
@@ -49,34 +43,42 @@ function AppSidebar() {
       <SidebarContent className="flex flex-col justify-between h-full">
         <div>
           <div className="p-4 border-b border-sidebar-border">
-            {!collapsed && (
-              <div>
-                <h2 className="font-bold text-lg text-sidebar-foreground">Klendei</h2>
-                {business && (
-                  <p className="text-xs text-muted-foreground truncate">{business.name}</p>
-                )}
+            {!collapsed ? (
+              <KlendeiLogo size="sm" />
+            ) : (
+              <div className="h-7 w-7 rounded-xl bg-[#7C6EF5] flex items-center justify-center">
+                <span className="text-white font-medium text-sm" style={{ letterSpacing: -1 }}>k</span>
               </div>
             )}
-            {collapsed && <span className="font-bold text-lg text-sidebar-foreground">K</span>}
+            {!collapsed && business && (
+              <p className="text-xs text-muted-foreground truncate mt-1">{business.name}</p>
+            )}
           </div>
 
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu>
-                {NAV_ITEMS.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild>
-                      <NavLink
-                        to={item.url}
-                        end={item.url === '/dashboard'}
-                        className="hover:bg-sidebar-accent"
-                        activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                      >
-                        <item.icon className="mr-2 h-4 w-4" />
-                        {!collapsed && <span>{item.title}</span>}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                {NAV_ITEMS.map((item, i) => (
+                  <motion.div
+                    key={item.title}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                  >
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild>
+                        <NavLink
+                          to={item.url}
+                          end={item.url === '/dashboard'}
+                          className="hover:bg-sidebar-accent"
+                          activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                        >
+                          <item.icon className="mr-2 h-4 w-4" />
+                          {!collapsed && <span>{item.title}</span>}
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  </motion.div>
                 ))}
               </SidebarMenu>
             </SidebarGroupContent>
@@ -116,11 +118,18 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <div className="min-h-screen flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col">
-          <header className="h-14 flex items-center border-b px-4 bg-card">
+          <header className="h-14 flex items-center justify-between border-b px-4 bg-card">
             <SidebarTrigger className="mr-4" />
+            <ThemeToggle />
           </header>
           <main className="flex-1 p-4 md:p-6 overflow-auto">
-            {children}
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              {children}
+            </motion.div>
           </main>
         </div>
       </div>

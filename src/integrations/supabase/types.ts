@@ -230,6 +230,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          online_now: boolean | null
           photo_url: string | null
           schedule: Json | null
           specialty: string | null
@@ -242,6 +243,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          online_now?: boolean | null
           photo_url?: string | null
           schedule?: Json | null
           specialty?: string | null
@@ -254,6 +256,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          online_now?: boolean | null
           photo_url?: string | null
           schedule?: Json | null
           specialty?: string | null
@@ -314,6 +317,7 @@ export type Database = {
           business_id: string
           created_at: string
           duration_minutes: number
+          icon_key: string | null
           id: string
           name: string
           price: number
@@ -324,6 +328,7 @@ export type Database = {
           business_id: string
           created_at?: string
           duration_minutes?: number
+          icon_key?: string | null
           id?: string
           name: string
           price?: number
@@ -334,6 +339,7 @@ export type Database = {
           business_id?: string
           created_at?: string
           duration_minutes?: number
+          icon_key?: string | null
           id?: string
           name?: string
           price?: number

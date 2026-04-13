@@ -12,6 +12,7 @@ import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import PublicBooking from "./pages/PublicBooking";
 import NotFound from "./pages/NotFound";
+import Demo, { DemoAdmin } from "./pages/Demo";
 import DashboardLayout from "./components/DashboardLayout";
 import DashboardHome from "./pages/dashboard/DashboardHome";
 import Agenda from "./pages/dashboard/Agenda";

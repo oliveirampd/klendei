@@ -32,6 +32,9 @@ export default function Landing() {
           transition={{ duration: 0.6 }}
           className="max-w-3xl mx-auto"
         >
+          <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }} className="flex justify-center mb-10">
+            <KlendeiLogo size="lg" className="scale-150 md:scale-[2]" />
+          </motion.div>
           <h1 className="text-4xl md:text-6xl font-bold mb-6" style={{ letterSpacing: -0.5 }}>
             Agendamento online para seu negócio
           </h1>

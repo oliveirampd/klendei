@@ -12,6 +12,7 @@ import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import PublicBooking from "./pages/PublicBooking";
 import NotFound from "./pages/NotFound";
+import Demo, { DemoAdmin } from "./pages/Demo";
 import DashboardLayout from "./components/DashboardLayout";
 import DashboardHome from "./pages/dashboard/DashboardHome";
 import Agenda from "./pages/dashboard/Agenda";
@@ -79,6 +80,8 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route path="/demo" element={<Demo />} />
+      <Route path="/demo-admin" element={<DemoAdmin />} />
       <Route path="/:slug" element={<PublicBooking />} />
       <Route path="*" element={<NotFound />} />
     </Routes>

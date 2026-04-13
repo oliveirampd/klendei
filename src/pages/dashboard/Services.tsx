@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Scissors, Sparkles, Hand, Eye, Droplets, Stethoscope, Smile, Heart } from 'lucide-react';
+import { Plus, Scissors, Sparkles, Hand, Eye, Droplets, Stethoscope, Smile, Heart, Pencil, Trash2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/format';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
@@ -48,6 +48,8 @@ export default function Services() {
   const { business } = useBusiness();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingSvc, setEditingSvc] = useState<any>(null);
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [duration, setDuration] = useState('30');
@@ -70,11 +72,8 @@ export default function Services() {
     mutationFn: async (svc: { name: string; price: number; duration: number; icon: string }) => {
       if (!business) throw new Error('No business');
       const { error } = await supabase.from('services').insert({
-        business_id: business.id,
-        name: svc.name,
-        price: svc.price,
-        duration_minutes: svc.duration,
-        icon_key: svc.icon,
+        business_id: business.id, name: svc.name, price: svc.price,
+        duration_minutes: svc.duration, icon_key: svc.icon,
       });
       if (error) throw error;
     },
@@ -85,6 +84,32 @@ export default function Services() {
       toast.success('Serviço adicionado!');
     },
     onError: () => toast.error('Erro ao adicionar serviço.'),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (svc: { id: string; name: string; price: number; duration_minutes: number; icon_key: string }) => {
+      const { id, ...rest } = svc;
+      const { error } = await supabase.from('services').update(rest).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['services'] });
+      setEditOpen(false); setEditingSvc(null);
+      toast.success('Serviço atualizado!');
+    },
+    onError: () => toast.error('Erro ao atualizar serviço.'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('services').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['services'] });
+      toast.success('Serviço removido!');
+    },
+    onError: () => toast.error('Erro ao remover serviço.'),
   });
 
   const toggleActive = useMutation({
@@ -104,6 +129,17 @@ export default function Services() {
     addMutation.mutate({ name: t.name, price: t.price, duration: t.duration, icon: t.icon });
   };
 
+  const openEdit = (svc: any) => {
+    setEditingSvc({ ...svc });
+    setEditOpen(true);
+  };
+
+  const handleDelete = (id: string, name: string) => {
+    if (confirm(`Deseja remover o serviço "${name}"?`)) {
+      deleteMutation.mutate(id);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -117,7 +153,6 @@ export default function Services() {
           <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Novo serviço</DialogTitle></DialogHeader>
             <div className="space-y-5">
-              {/* Templates */}
               <div className="space-y-2">
                 <Label className="text-muted-foreground text-xs uppercase tracking-wide">Escolha um modelo ou crie personalizado</Label>
                 <div className="flex flex-wrap gap-2">
@@ -137,10 +172,7 @@ export default function Services() {
                   })}
                 </div>
               </div>
-
               <div className="relative"><div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div><div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">ou crie personalizado</span></div></div>
-
-              {/* Custom form */}
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Nome</Label>
@@ -182,6 +214,51 @@ export default function Services() {
         </Dialog>
       </div>
 
+      {/* Edit dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Editar serviço</DialogTitle></DialogHeader>
+          {editingSvc && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Nome</Label>
+                <Input value={editingSvc.name} onChange={(e) => setEditingSvc({ ...editingSvc, name: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Preço (R$)</Label>
+                  <Input type="number" step="0.01" value={editingSvc.price} onChange={(e) => setEditingSvc({ ...editingSvc, price: parseFloat(e.target.value) || 0 })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Duração (min)</Label>
+                  <Input type="number" value={editingSvc.duration_minutes} onChange={(e) => setEditingSvc({ ...editingSvc, duration_minutes: parseInt(e.target.value) || 0 })} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Ícone</Label>
+                <div className="flex gap-2 flex-wrap">
+                  {ICON_OPTIONS.map((key) => {
+                    const Icon = SERVICE_ICONS[key];
+                    return (
+                      <motion.button key={key} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                        onClick={() => setEditingSvc({ ...editingSvc, icon_key: key })}
+                        className={`p-2 rounded-lg border transition-colors ${editingSvc.icon_key === key ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-accent'}`}>
+                        <Icon className="h-5 w-5" />
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </div>
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+                <Button onClick={() => updateMutation.mutate(editingSvc)} disabled={updateMutation.isPending} className="w-full">
+                  {updateMutation.isPending ? 'Salvando...' : 'Salvar alterações'}
+                </Button>
+              </motion.div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {services.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
@@ -208,10 +285,22 @@ export default function Services() {
                           <span>{formatCurrency(svc.price)}</span><span>·</span><span>{svc.duration_minutes} min</span>
                         </div>
                       </div>
+                    </div>
+                    <div className="flex items-center gap-2 mt-3">
                       <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                         <Button variant={svc.active ? 'default' : 'secondary'} size="sm"
                           onClick={() => toggleActive.mutate({ id: svc.id, active: svc.active ?? true })}>
                           {svc.active ? 'Ativo' : 'Inativo'}
+                        </Button>
+                      </motion.div>
+                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                        <Button variant="outline" size="sm" onClick={() => openEdit(svc)}>
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                      </motion.div>
+                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                        <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDelete(svc.id, svc.name)}>
+                          <Trash2 className="h-3 w-3" />
                         </Button>
                       </motion.div>
                     </div>

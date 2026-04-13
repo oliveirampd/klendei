@@ -80,6 +80,8 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route path="/demo" element={<Demo />} />
+      <Route path="/demo-admin" element={<DemoAdmin />} />
       <Route path="/:slug" element={<PublicBooking />} />
       <Route path="*" element={<NotFound />} />
     </Routes>

@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
-import { formatCurrency, formatTime, phoneMask } from '@/lib/format';
+import { formatCurrency, formatPhone, phoneMask } from '@/lib/format';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { CalendarIcon, Clock, CheckCircle, Search, UserPlus } from 'lucide-react';
@@ -22,14 +22,11 @@ export default function NewAppointment() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  // Client selection
   const [clientMode, setClientMode] = useState<'existing' | 'new'>('existing');
   const [clientSearch, setClientSearch] = useState('');
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [newClientName, setNewClientName] = useState('');
   const [newClientPhone, setNewClientPhone] = useState('');
-
-  // Appointment
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [selectedProfId, setSelectedProfId] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -68,7 +65,6 @@ export default function NewAppointment() {
 
   const selectedService = services.find((s) => s.id === selectedServiceId);
 
-  // Fetch existing appointments for selected date + professional to find available slots
   const { data: existingApts = [] } = useQuery({
     queryKey: ['day-appointments', business?.id, selectedProfId, selectedDate?.toISOString()],
     queryFn: async () => {
@@ -117,17 +113,12 @@ export default function NewAppointment() {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      if (!business || !selectedDate || !selectedTime || !selectedServiceId || !selectedProfId) {
+      if (!business || !selectedDate || !selectedTime || !selectedServiceId || !selectedProfId)
         throw new Error('Preencha todos os campos');
-      }
-
       const [hh, mm] = selectedTime.split(':');
       const dt = new Date(selectedDate);
       dt.setHours(parseInt(hh), parseInt(mm), 0, 0);
-
-      let clientName: string;
-      let clientPhone: string;
-
+      let clientName: string, clientPhone: string;
       if (clientMode === 'existing' && selectedClient) {
         clientName = selectedClient.name;
         clientPhone = selectedClient.phone;
@@ -137,19 +128,13 @@ export default function NewAppointment() {
       } else {
         throw new Error('Selecione ou crie um cliente');
       }
-
       const { data, error } = await supabase.functions.invoke('create-appointment', {
         body: {
-          business_id: business.id,
-          professional_id: selectedProfId,
-          service_id: selectedServiceId,
-          datetime: dt.toISOString(),
-          client_name: clientName,
-          client_phone: clientPhone,
+          business_id: business.id, professional_id: selectedProfId, service_id: selectedServiceId,
+          datetime: dt.toISOString(), client_name: clientName, client_phone: clientPhone,
           notes: notes || undefined,
         },
       });
-
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       return data;
@@ -161,16 +146,11 @@ export default function NewAppointment() {
       toast.success('Agendamento criado com sucesso!');
       navigate('/dashboard/agenda');
     },
-    onError: (err: any) => {
-      toast.error(err.message || 'Erro ao criar agendamento.');
-    },
+    onError: (err: any) => toast.error(err.message || 'Erro ao criar agendamento.'),
   });
 
   const canSubmit =
-    selectedServiceId &&
-    selectedProfId &&
-    selectedDate &&
-    selectedTime &&
+    selectedServiceId && selectedProfId && selectedDate && selectedTime &&
     ((clientMode === 'existing' && selectedClientId) || (clientMode === 'new' && newClientName && newClientPhone.replace(/\D/g, '').length >= 10));
 
   return (
@@ -179,53 +159,40 @@ export default function NewAppointment() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Client Selection */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }}>
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Cliente</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle className="text-base">Cliente</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-2">
-                <Button
-                  variant={clientMode === 'existing' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setClientMode('existing')}
-                  className="transition-all duration-200 hover:scale-[1.02] active:scale-[0.97]"
-                >
-                  <Search className="mr-2 h-4 w-4" />
-                  Cliente existente
-                </Button>
-                <Button
-                  variant={clientMode === 'new' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setClientMode('new')}
-                  className="transition-all duration-200 hover:scale-[1.02] active:scale-[0.97]"
-                >
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Novo cliente
-                </Button>
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+                  <Button variant={clientMode === 'existing' ? 'default' : 'outline'} size="sm" onClick={() => setClientMode('existing')}>
+                    <Search className="mr-2 h-4 w-4" />Cliente existente
+                  </Button>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+                  <Button variant={clientMode === 'new' ? 'default' : 'outline'} size="sm" onClick={() => setClientMode('new')}>
+                    <UserPlus className="mr-2 h-4 w-4" />Novo cliente
+                  </Button>
+                </motion.div>
               </div>
 
               {clientMode === 'existing' ? (
                 <div className="space-y-3">
-                  <Input
-                    placeholder="Buscar por nome ou telefone..."
-                    value={clientSearch}
-                    onChange={(e) => setClientSearch(e.target.value)}
-                  />
-                  <div className="max-h-48 overflow-auto space-y-1">
+                  <Input placeholder="Buscar por nome ou telefone..." value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} />
+                  <div className="max-h-60 overflow-y-auto space-y-1">
                     {filteredClients.map((c) => (
-                      <motion.button
-                        key={c.id}
-                        whileHover={{ scale: 1.01 }}
-                        whileTap={{ scale: 0.98 }}
+                      <motion.button key={c.id} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
                         className={`w-full text-left p-3 rounded-lg border text-sm transition-colors ${
                           selectedClientId === c.id ? 'border-primary bg-primary/10' : 'hover:bg-accent'
                         }`}
-                        onClick={() => setSelectedClientId(c.id)}
-                      >
-                        <p className="font-medium">{c.name}</p>
-                        <p className="text-muted-foreground text-xs">{c.phone}</p>
+                        onClick={() => setSelectedClientId(c.id)}>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">{c.name}</p>
+                            <p className="text-muted-foreground text-xs">{formatPhone(c.phone)}</p>
+                          </div>
+                          <span className="text-xs text-muted-foreground">{c.total_visits ?? 0} visitas</span>
+                        </div>
                       </motion.button>
                     ))}
                     {filteredClients.length === 0 && (
@@ -241,11 +208,7 @@ export default function NewAppointment() {
                   </div>
                   <div className="space-y-2">
                     <Label>WhatsApp</Label>
-                    <Input
-                      value={newClientPhone}
-                      onChange={(e) => setNewClientPhone(phoneMask(e.target.value))}
-                      placeholder="(11) 99999-9999"
-                    />
+                    <Input value={newClientPhone} onChange={(e) => setNewClientPhone(phoneMask(e.target.value))} placeholder="(11) 99999-9999" />
                   </div>
                 </div>
               )}
@@ -256,21 +219,15 @@ export default function NewAppointment() {
         {/* Service & Professional */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Serviço e Profissional</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle className="text-base">Serviço e Profissional</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>Serviço</Label>
                 <Select value={selectedServiceId} onValueChange={setSelectedServiceId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o serviço" />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Selecione o serviço" /></SelectTrigger>
                   <SelectContent>
                     {services.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name} — {formatCurrency(s.price)} · {s.duration_minutes}min
-                      </SelectItem>
+                      <SelectItem key={s.id} value={s.id}>{s.name} — {formatCurrency(s.price)} · {s.duration_minutes}min</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -278,14 +235,10 @@ export default function NewAppointment() {
               <div className="space-y-2">
                 <Label>Profissional</Label>
                 <Select value={selectedProfId} onValueChange={setSelectedProfId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o profissional" />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Selecione o profissional" /></SelectTrigger>
                   <SelectContent>
                     {professionals.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name} {p.specialty ? `· ${p.specialty}` : ''}
-                      </SelectItem>
+                      <SelectItem key={p.id} value={p.id}>{p.name} {p.specialty ? `· ${p.specialty}` : ''}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -302,19 +255,12 @@ export default function NewAppointment() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <Card>
             <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <CalendarIcon className="h-4 w-4" /> Data
-              </CardTitle>
+              <CardTitle className="text-base flex items-center gap-2"><CalendarIcon className="h-4 w-4" /> Data</CardTitle>
             </CardHeader>
             <CardContent>
-              <Calendar
-                mode="single"
-                selected={selectedDate}
+              <Calendar mode="single" selected={selectedDate}
                 onSelect={(d) => { setSelectedDate(d); setSelectedTime(''); }}
-                locale={ptBR}
-                disabled={(d) => d < startOfDay(new Date())}
-                className="rounded-md border mx-auto"
-              />
+                locale={ptBR} disabled={(d) => d < startOfDay(new Date())} className="rounded-md border mx-auto" />
             </CardContent>
           </Card>
         </motion.div>
@@ -323,31 +269,21 @@ export default function NewAppointment() {
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
           <Card>
             <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Clock className="h-4 w-4" /> Horário
-              </CardTitle>
+              <CardTitle className="text-base flex items-center gap-2"><Clock className="h-4 w-4" /> Horário</CardTitle>
             </CardHeader>
             <CardContent>
               {!selectedServiceId || !selectedProfId ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  Selecione um serviço e profissional para ver os horários.
-                </p>
+                <p className="text-sm text-muted-foreground text-center py-8">Selecione um serviço e profissional para ver os horários.</p>
               ) : timeSlots.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">Nenhum horário disponível nesta data.</p>
               ) : (
                 <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                   {timeSlots.map((t) => (
-                    <motion.button
-                      key={t}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                    <motion.button key={t} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                       className={`py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
-                        selectedTime === t
-                          ? 'bg-primary text-primary-foreground border-primary'
-                          : 'hover:bg-accent hover:border-primary/30'
+                        selectedTime === t ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-accent hover:border-primary/30'
                       }`}
-                      onClick={() => setSelectedTime(t)}
-                    >
+                      onClick={() => setSelectedTime(t)}>
                       {t}
                     </motion.button>
                   ))}
@@ -372,21 +308,11 @@ export default function NewAppointment() {
                 {clientMode === 'existing' && selectedClient && <p><strong>Cliente:</strong> {selectedClient.name}</p>}
                 {clientMode === 'new' && newClientName && <p><strong>Cliente:</strong> {newClientName}</p>}
               </div>
-              <Button
-                size="lg"
-                disabled={!canSubmit || createMutation.isPending}
-                onClick={() => createMutation.mutate()}
-                className="transition-all duration-200 hover:scale-[1.02] active:scale-[0.97]"
-              >
-                {createMutation.isPending ? (
-                  'Agendando...'
-                ) : (
-                  <>
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Confirmar agendamento
-                  </>
-                )}
-              </Button>
+              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+                <Button size="lg" disabled={!canSubmit || createMutation.isPending} onClick={() => createMutation.mutate()}>
+                  {createMutation.isPending ? 'Agendando...' : <><CheckCircle className="mr-2 h-4 w-4" />Confirmar agendamento</>}
+                </Button>
+              </motion.div>
             </div>
           </CardContent>
         </Card>

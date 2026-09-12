@@ -189,6 +189,191 @@ export type Database = {
           },
         ]
       }
+      configuracoes: {
+        Row: {
+          cor_fundo_qr: string
+          cor_qr: string
+          created_at: string
+          dominio_curto: string
+          email_notificacao: string | null
+          id: string
+          updated_at: string
+          whatsapp_notificacao: string | null
+        }
+        Insert: {
+          cor_fundo_qr?: string
+          cor_qr?: string
+          created_at?: string
+          dominio_curto?: string
+          email_notificacao?: string | null
+          id?: string
+          updated_at?: string
+          whatsapp_notificacao?: string | null
+        }
+        Update: {
+          cor_fundo_qr?: string
+          cor_qr?: string
+          created_at?: string
+          dominio_curto?: string
+          email_notificacao?: string | null
+          id?: string
+          updated_at?: string
+          whatsapp_notificacao?: string | null
+        }
+        Relationships: []
+      }
+      estabelecimentos: {
+        Row: {
+          created_at: string
+          endereco: string | null
+          id: string
+          logo_url: string | null
+          nome: string
+          plano: Database["public"]["Enums"]["plano_tipo"]
+          responsavel: string | null
+          status: Database["public"]["Enums"]["estab_status"]
+          telefone: string | null
+          updated_at: string
+          valor_mensalidade: number
+          whatsapp: string | null
+        }
+        Insert: {
+          created_at?: string
+          endereco?: string | null
+          id?: string
+          logo_url?: string | null
+          nome: string
+          plano?: Database["public"]["Enums"]["plano_tipo"]
+          responsavel?: string | null
+          status?: Database["public"]["Enums"]["estab_status"]
+          telefone?: string | null
+          updated_at?: string
+          valor_mensalidade?: number
+          whatsapp?: string | null
+        }
+        Update: {
+          created_at?: string
+          endereco?: string | null
+          id?: string
+          logo_url?: string | null
+          nome?: string
+          plano?: Database["public"]["Enums"]["plano_tipo"]
+          responsavel?: string | null
+          status?: Database["public"]["Enums"]["estab_status"]
+          telefone?: string | null
+          updated_at?: string
+          valor_mensalidade?: number
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
+      feedbacks_privados: {
+        Row: {
+          comentario: string | null
+          contato_cliente: string | null
+          created_at: string
+          id: string
+          lido: boolean
+          nota: number
+          placa_id: string
+          scan_id: string | null
+        }
+        Insert: {
+          comentario?: string | null
+          contato_cliente?: string | null
+          created_at?: string
+          id?: string
+          lido?: boolean
+          nota: number
+          placa_id: string
+          scan_id?: string | null
+        }
+        Update: {
+          comentario?: string | null
+          contato_cliente?: string | null
+          created_at?: string
+          id?: string
+          lido?: boolean
+          nota?: number
+          placa_id?: string
+          scan_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedbacks_privados_placa_id_fkey"
+            columns: ["placa_id"]
+            isOneToOne: false
+            referencedRelation: "placas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feedbacks_privados_scan_id_fkey"
+            columns: ["scan_id"]
+            isOneToOne: false
+            referencedRelation: "scans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      placas: {
+        Row: {
+          apelido: string | null
+          codigo_curto: string
+          created_at: string
+          data_instalacao: string | null
+          data_venda: string | null
+          estabelecimento_id: string | null
+          id: string
+          preco_venda: number
+          status: Database["public"]["Enums"]["placa_status"]
+          tipo_destino: Database["public"]["Enums"]["tipo_destino"]
+          updated_at: string
+          url_destino: string | null
+          url_feedback_negativo: string | null
+          url_google: string | null
+        }
+        Insert: {
+          apelido?: string | null
+          codigo_curto: string
+          created_at?: string
+          data_instalacao?: string | null
+          data_venda?: string | null
+          estabelecimento_id?: string | null
+          id?: string
+          preco_venda?: number
+          status?: Database["public"]["Enums"]["placa_status"]
+          tipo_destino?: Database["public"]["Enums"]["tipo_destino"]
+          updated_at?: string
+          url_destino?: string | null
+          url_feedback_negativo?: string | null
+          url_google?: string | null
+        }
+        Update: {
+          apelido?: string | null
+          codigo_curto?: string
+          created_at?: string
+          data_instalacao?: string | null
+          data_venda?: string | null
+          estabelecimento_id?: string | null
+          id?: string
+          preco_venda?: number
+          status?: Database["public"]["Enums"]["placa_status"]
+          tipo_destino?: Database["public"]["Enums"]["tipo_destino"]
+          updated_at?: string
+          url_destino?: string | null
+          url_feedback_negativo?: string | null
+          url_google?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "placas_estabelecimento_id_fkey"
+            columns: ["estabelecimento_id"]
+            isOneToOne: false
+            referencedRelation: "estabelecimentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       professional_services: {
         Row: {
           id: string
@@ -311,6 +496,47 @@ export type Database = {
           },
         ]
       }
+      scans: {
+        Row: {
+          avaliacao_estrelas: number | null
+          cidade_aproximada: string | null
+          id: string
+          placa_id: string
+          redirecionou_para_google: boolean
+          sistema_operacional: string | null
+          timestamp: string
+          user_agent: string | null
+        }
+        Insert: {
+          avaliacao_estrelas?: number | null
+          cidade_aproximada?: string | null
+          id?: string
+          placa_id: string
+          redirecionou_para_google?: boolean
+          sistema_operacional?: string | null
+          timestamp?: string
+          user_agent?: string | null
+        }
+        Update: {
+          avaliacao_estrelas?: number | null
+          cidade_aproximada?: string | null
+          id?: string
+          placa_id?: string
+          redirecionou_para_google?: boolean
+          sistema_operacional?: string | null
+          timestamp?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scans_placa_id_fkey"
+            columns: ["placa_id"]
+            isOneToOne: false
+            referencedRelation: "placas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       services: {
         Row: {
           active: boolean | null
@@ -355,16 +581,126 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      usuarios_estabelecimento: {
+        Row: {
+          auth_user_id: string | null
+          created_at: string
+          email: string
+          estabelecimento_id: string
+          id: string
+        }
+        Insert: {
+          auth_user_id?: string | null
+          created_at?: string
+          email: string
+          estabelecimento_id: string
+          id?: string
+        }
+        Update: {
+          auth_user_id?: string | null
+          created_at?: string
+          email?: string
+          estabelecimento_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usuarios_estabelecimento_estabelecimento_id_fkey"
+            columns: ["estabelecimento_id"]
+            isOneToOne: false
+            referencedRelation: "estabelecimentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      gerar_codigo_placa: { Args: never; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
+      meus_estabelecimentos: { Args: { _user_id: string }; Returns: string[] }
+      registrar_avaliacao: {
+        Args: { _estrelas: number; _foi_google: boolean; _scan_id: string }
+        Returns: undefined
+      }
+      registrar_feedback: {
+        Args: {
+          _codigo: string
+          _comentario: string
+          _contato: string
+          _nota: number
+          _scan_id: string
+        }
+        Returns: undefined
+      }
+      registrar_scan: {
+        Args: {
+          _cidade: string
+          _codigo: string
+          _so: string
+          _user_agent: string
+        }
+        Returns: string
+      }
+      reivindicar_admin: { Args: never; Returns: boolean }
+      resolver_placa: {
+        Args: { _codigo: string }
+        Returns: {
+          estabelecimento_logo: string
+          estabelecimento_nome: string
+          placa_id: string
+          status: Database["public"]["Enums"]["placa_status"]
+          tipo_destino: Database["public"]["Enums"]["tipo_destino"]
+          url_destino: string
+          url_feedback_negativo: string
+          url_google: string
+        }[]
+      }
     }
     Enums: {
+      app_role: "admin" | "estabelecimento"
       appointment_status: "pending" | "confirmed" | "completed" | "cancelled"
       business_type: "salon" | "clinic"
+      estab_status: "ativo" | "inadimplente"
+      placa_status:
+        | "em_estoque"
+        | "vendida"
+        | "instalada"
+        | "ativa"
+        | "inativa"
+        | "defeito"
+      plano_tipo: "avulso" | "mensal"
+      tipo_destino: "direto" | "funil_avaliacao"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -492,8 +828,20 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "estabelecimento"],
       appointment_status: ["pending", "confirmed", "completed", "cancelled"],
       business_type: ["salon", "clinic"],
+      estab_status: ["ativo", "inadimplente"],
+      placa_status: [
+        "em_estoque",
+        "vendida",
+        "instalada",
+        "ativa",
+        "inativa",
+        "defeito",
+      ],
+      plano_tipo: ["avulso", "mensal"],
+      tipo_destino: ["direto", "funil_avaliacao"],
     },
   },
 } as const
